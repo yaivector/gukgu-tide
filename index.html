@@ -3,36 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>น้ำขึ้นน้ำลง ชุมพร - gukgu</title>
-    
-    <!-- PWA Setup -->
+    <title>น้ำขึ้นน้ำลง ชุมพร - gukgu tide</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0284c7">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f8fafc; color: #1e293b; margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .app-container { width: 100%; max-width: 480px; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { font-size: 1.25rem; margin: 0; color: #0284c7; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .header p { font-size: 0.85rem; color: #64748b; margin: 4px 0 0 0; }
+        .date-picker { margin-bottom: 20px; }
+        .date-picker input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; text-align: center; outline: none; }
+        .chart-container { position: relative; height: 200px; width: 100%; margin-bottom: 20px; }
+        .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .event-item { padding: 12px; border-radius: 8px; text-align: center; }
+        .event-item.high { background-color: #e0f2fe; color: #0369a1; }
+        .event-item.low { background-color: #f1f5f9; color: #475569; }
+        .event-label { font-size: 0.8rem; font-weight: 600; }
+        .event-time { font-size: 1.2rem; font-weight: 700; margin: 4px 0; }
+        .event-height { font-size: 0.85rem; opacity: 0.8; }
+    </style>
+</head>
+<body>
 
-    <!-- Chart.js -->
-    <script>
-    // 1. Service Worker Registration
+<div class="app-container">
+    <div class="header">
+        <h1>🌊 น้ำขึ้นน้ำลง ชุมพร</h1>
+        <p>สถานีปากน้ำชุมพร • gukgu tide</p>
+    </div>
+
+    <div class="date-picker">
+        <input type="date" id="dateInput">
+    </div>
+
+    <div class="chart-container">
+        <canvas id="tideChart"></canvas>
+    </div>
+
+    <div class="events-grid" id="eventsGrid"></div>
+</div>
+
+<script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js');
     }
 
-    // 2. พิกัดปากน้ำชุมพร & API Key
     const LAT = 10.4394;
     const LON = 99.2483;
     
-    // 🔑 วาง API Key ที่ก๊อปปี้มาลงในอัญประกาศ ' ' ด้านล่างนี้
+    // 🔑 วาง API Key ของคุณในอัญประกาศด้านล่างนี้
     const API_KEY = '9c833b91-7980-40b8-a11b-4e880161f497';
 
     let tideChart;
     const dateInput = document.getElementById('dateInput');
     
-    // ตั้งค่าวันที่เริ่มต้นเป็นวันนี้
     const today = new Date().toISOString().split('T')[0];
-    dateInput.value = today;
+    if (dateInput) dateInput.value = today;
 
-    // ระบบ Cache ข้อมูลเพื่อประหยัด Credits
     function getCachedData(dateStr) {
         const cached = localStorage.getItem(`tide_${dateStr}`);
         return cached ? JSON.parse(cached) : null;
@@ -44,9 +74,8 @@
 
     async function fetchTideData(selectedDate) {
         const eventsGrid = document.getElementById('eventsGrid');
-        eventsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#94a3b8; padding: 20px;">กำลังโหลดข้อมูลตารางน้ำ...</div>';
+        eventsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#94a3b8; padding: 20px;">กำลังโหลดข้อมูล...</div>';
 
-        // เช็กว่าเคยดึงข้อมูลวันนี้นำมาบันทึกไว้ในเครื่องแล้วหรือยัง (เพื่อไม่ให้เสีย Credit)
         const localData = getCachedData(selectedDate);
         if (localData) {
             renderData(localData);
@@ -54,12 +83,10 @@
         }
 
         try {
-            // ดึงข้อมูลผ่าน WorldTides API
             const response = await fetch(`https://www.worldtides.info/api/v3?extremes&date=${selectedDate}&lat=${LAT}&lon=${LON}&key=${API_KEY}`);
             const data = await response.json();
 
             if (data.extremes && data.extremes.length > 0) {
-                // บันทึกลงเครื่อง
                 setCachedData(selectedDate, data.extremes);
                 renderData(data.extremes);
             } else {
@@ -68,7 +95,7 @@
             }
         } catch (error) {
             console.error('Error fetching tide data:', error);
-            eventsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#ef4444; padding: 20px;">เกิดข้อผิดพลาดในการดึงข้อมูล (โปรดตรวจสอบ API Key)</div>';
+            eventsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#ef4444; padding: 20px;">เกิดข้อผิดพลาดในการดึงข้อมูล</div>';
         }
     }
 
@@ -126,11 +153,10 @@
         });
     }
 
-    // เมื่อเปลี่ยนวันที่ ให้เรียกข้อมูลใหม่
-    dateInput.addEventListener('change', (e) => fetchTideData(e.target.value));
-
-    // โหลดข้อมูลวันแรก
-    fetchTideData(dateInput.value);
+    if (dateInput) {
+        dateInput.addEventListener('change', (e) => fetchTideData(e.target.value));
+        fetchTideData(dateInput.value);
+    }
 </script>
 
 </body>
