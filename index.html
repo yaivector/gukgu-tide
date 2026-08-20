@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>น้ำขึ้นน้ำลง ชุมพร - gukgu</title>
+    
+    <!-- PWA Setup -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0284c7">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135783.png">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --primary: #0284c7;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --accent-high: #0369a1;
+            --accent-low: #0ea5e9;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container { width: 100%; max-width: 480px; }
+        header { text-align: center; margin-bottom: 16px; }
+        h1 { font-size: 1.4rem; margin: 0 0 4px 0; color: var(--primary); }
+        .subtitle { font-size: 0.85rem; color: var(--text-sub); }
+
+        /* PWA Banner */
+        .pwa-banner {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+            cursor: pointer;
+        }
+
+        .pwa-banner-text {
+            font-size: 0.88rem;
+            font-weight: 500;
+        }
+
+        .btn-install {
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* ซ่อน Banner อัตโนมัติเมื่อเปิดใช้งานผ่านแอปแล้ว */
+        @media all and (display-mode: standalone) {
+            .pwa-banner { display: none !important; }
+        }
+
+        /* Modal คำแนะนำ iOS */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 12px; right: 16px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #94a3b8;
+        }
+
+        .ios-step {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 12px;
+            margin: 10px 0;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            margin-bottom: 12px;
+        }
+
+        .date-picker-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f1f5f9;
+            padding: 10px 14px;
+            border-radius: 12px;
+        }
+
+        input[type="date"] {
+            border: none;
+            background: transparent;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            outline: none;
+        }
+
+        .events-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .event-item {
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .event-item.high { border-left: 4px solid var(--accent-high); }
+        .event-item.low { border-left: 4px solid var(--accent-low); }
+        .event-label { font-size: 0.78rem; color: var(--text-sub); }
+        .event-time { font-size: 1.1rem; font-weight: bold; margin: 2px 0; }
+        .event-height { font-size: 0.85rem; color: var(--primary); font-weight: 500; }
+        .chart-container { position: relative; height: 190px; width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🌊 น้ำขึ้นน้ำลง ชุมพร</h1>
+        <div class="subtitle">สถานีปากน้ำชุมพร • อ้างอิงกรมอุทกศาสตร์</div>
+    </header>
+
+    <!-- แบนเนอร์ติดตั้ง PWA -->
+    <div id="pwaBanner" class="pwa-banner" onclick="installPWA()">
+        <div class="pwa-banner-text">📲 ติดตั้งแอปไว้บนมือถือใช้งานสะดวก</div>
+        <button class="btn-install">ติดตั้ง</button>
+    </div>
+
+    <!-- เลือกวันที่ -->
+    <div class="card date-picker-box">
+        <span style="font-weight: 500; font-size: 0.9rem;">📅 เลือกวันที่:</span>
+        <input type="date" id="dateInput">
+    </div>
+
+    <!-- กราฟคลื่นน้ำ -->
+    <div class="card">
+        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 8px;">แนวโน้มระดับน้ำ (เมตร)</div>
+        <div class="chart-container">
+            <canvas id="tideChart"></canvas>
+        </div>
+    </div>
+
+    <!-- ตารางเวลา -->
+    <div class="card">
+        <div style="font-weight: bold; font-size: 0.9rem;">ตารางน้ำขึ้น-น้ำลง</div>
+        <div class="events-grid" id="eventsGrid"></div>
+    </div>
+</div>
+
+<!-- Modal สำหรับสอนวิธีทำบน iOS -->
+<div id="iosModal" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModalDirect()">&times;</span>
+        <h3 style="margin: 0 0 10px 0; color: var(--primary);">📲 ติดตั้งบน iPhone / iPad</h3>
+        
+        <div class="ios-step">
+            1. กดปุ่ม <strong>แชร์ (Share)</strong> <span style="font-size:1.2rem;">📤</span> ด้านล่างของจอ Safari
+        </div>
+        <div class="ios-step">
+            2. เลื่อนลงมาเลือก <strong>"เพิ่มไปยังหน้าจอหลัก"</strong> <span style="font-size:1.2rem;">➕</span>
+        </div>
+
+        <div style="color: var(--text-sub); font-size: 0.8rem; margin-top: 10px;">
+            👇 ปุ่มแชร์จะอยู่บริเวณแถบเมนูด้านล่างสุดของ Safari
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js');
+    }
+
+    // 2. Handling Install Prompt (Android & iOS)
+    let deferredPrompt;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+    });
+
+    function installPWA() {
+        if (deferredPrompt) {
+            // Android: เรียก Pop-up ถาม "ต้องการติดตั้งหรือไม่?" ทันที
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    document.getElementById('pwaBanner').style.display = 'none';
+                }
+                deferredPrompt = null;
+            });
+        } else if (isIOS) {
+            // iOS: เปิดหน้าต่างสอนแบบมีลูกศรชี้ลงด้านล่าง
+            document.getElementById('iosModal').style.display = 'flex';
+        } else {
+            alert('คุณเปิดใช้งานผ่านแอป หรือ Browser นี้รองรับการติดตั้งผ่านเมนูตั้งค่าแล้ว');
+        }
+    }
+
+    function closeModalDirect() {
+        document.getElementById('iosModal').style.display = 'none';
+    }
+
+    function closeModal(event) {
+        if (event.target.id === 'iosModal') closeModalDirect();
+    }
+
+    // 3. Tide Data & Chart Renderer
+    const db = {
+        "2026-08-20": [
+            { "time": "03:20", "height": 0.8, "type": "low" },
+            { "time": "09:45", "height": 2.6, "type": "high" },
+            { "time": "15:30", "height": 1.4, "type": "low" },
+            { "time": "21:50", "height": 3.1, "type": "high" }
+        ],
+        "2026-08-21": [
+            { "time": "04:05", "height": 0.7, "type": "low" },
+            { "time": "10:30", "height": 2.7, "type": "high" },
+            { "time": "16:15", "height": 1.3, "type": "low" },
+            { "time": "22:30", "height": 3.2, "type": "high" }
+        ]
+    };
+
+    let tideChart;
+    const dateInput = document.getElementById('dateInput');
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = db[today] ? today : "2026-08-20";
+
+    function renderData(selectedDate) {
+        const events = db[selectedDate] || db["2026-08-20"];
+        const eventsGrid = document.getElementById('eventsGrid');
+        eventsGrid.innerHTML = '';
+        
+        events.forEach(item => {
+            const typeText = item.type === 'high' ? '🔼 น้ำขึ้นเต็มที่' : '🔽 น้ำลงเต็มที่';
+            eventsGrid.innerHTML += `
+                <div class="event-item ${item.type}">
+                    <div class="event-label">${typeText}</div>
+                    <div class="event-time">${item.time} น.</div>
+                    <div class="event-height">${item.height} ม.</div>
+                </div>
+            `;
+        });
+
+        const times = events.map(e => e.time);
+        const heights = events.map(e => e.height);
+
+        if (tideChart) tideChart.destroy();
+
+        const ctx = document.getElementById('tideChart').getContext('2d');
+        tideChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: times,
+                datasets: [{
+                    data: heights,
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.12)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#0284c7'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { suggestedMin: 0 } }
+            }
+        });
+    }
+
+    dateInput.addEventListener('change', (e) => renderData(e.target.value));
+    renderData(dateInput.value);
+</script>
+
+</body>
+</html>

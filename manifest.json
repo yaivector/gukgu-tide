@@ -1,0 +1,21 @@
+{
+  "name": "น้ำขึ้นน้ำลง ชุมพร - gukgu",
+  "short_name": "น้ำขึ้นน้ำลง",
+  "description": "เช็กระดับน้ำขึ้นน้ำลง สถานีปากน้ำชุมพร ฟรี 100% ไม่มีโฆษณา",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135783.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135783.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
